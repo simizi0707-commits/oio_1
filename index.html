@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>오늘의 응원 한마디</title>
+  <style>
+    :root {
+      --bg: #fff8ef;
+      --card: #ffffff;
+      --text: #2b2b2b;
+      --muted: #6b6b6b;
+      --accent: #ff7a59;
+      --accent-dark: #e8603f;
+      --error-bg: #fdecea;
+      --error-text: #b3261e;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: system-ui, -apple-system, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      display: flex;
+      justify-content: center;
+      padding: 32px 16px;
+      font-size: 20px;
+      line-height: 1.6;
+    }
+    main {
+      width: 100%;
+      max-width: 480px;
+      background: var(--card);
+      border-radius: 20px;
+      padding: 28px 20px;
+      box-shadow: 0 6px 24px rgba(0, 0, 0, 0.08);
+    }
+    h1 {
+      font-size: 1.6em;
+      margin: 0 0 20px;
+      text-align: center;
+    }
+    label {
+      display: block;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+    .hint {
+      font-size: 0.8em;
+      color: var(--muted);
+      margin: 6px 0 20px;
+    }
+    input {
+      width: 100%;
+      font-size: 1em;
+      padding: 14px 16px;
+      border: 2px solid #ddd;
+      border-radius: 12px;
+    }
+    input:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+    button {
+      width: 100%;
+      font-size: 1.1em;
+      font-weight: 700;
+      padding: 18px;
+      border: none;
+      border-radius: 14px;
+      background: var(--accent);
+      color: #fff;
+      cursor: pointer;
+    }
+    button:hover { background: var(--accent-dark); }
+    button:disabled { opacity: 0.6; cursor: wait; }
+    #result {
+      margin-top: 24px;
+      min-height: 120px;
+      padding: 20px;
+      border-radius: 14px;
+      background: #fff3e6;
+      font-size: 1.2em;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      word-break: keep-all;
+    }
+    #result .who { font-weight: 700; margin-bottom: 8px; }
+    #result.status { color: var(--muted); font-size: 1em; }
+    #result.error {
+      background: var(--error-bg);
+      color: var(--error-text);
+      font-size: 1em;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>오늘의 응원 한마디</h1>
+
+    <form id="form">
+      <label for="name">공개용 닉네임</label>
+      <input id="name" type="text" maxlength="20" placeholder="예: 햇살" autocomplete="off" />
+      <p class="hint">비워 두면 "여러분"으로 불러 드려요. 실명 대신 닉네임을 써 주세요.</p>
+      <button id="btn" type="submit">응원 받기</button>
+    </form>
+
+    <div id="result" class="status" aria-live="polite">버튼을 눌러 응원을 받아 보세요.</div>
+  </main>
+
+  <script>
+    const form = document.getElementById("form");
+    const nameInput = document.getElementById("name");
+    const btn = document.getElementById("btn");
+    const result = document.getElementById("result");
+
+    function show(kind, text) {
+      result.className = kind;
+      result.textContent = text;
+    }
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      btn.disabled = true;
+      show("status", "응원을 불러오는 중이에요...");
+
+      try {
+        const name = nameInput.value.trim();
+        let res;
+        try {
+          res = await fetch("/api/message?name=" + encodeURIComponent(name), { cache: "no-store" });
+        } catch {
+          throw new Error("서버에 연결할 수 없어요.");
+        }
+        if (res.status === 404) throw new Error("응원 서버를 찾을 수 없어요.");
+        if (!res.ok) throw new Error("서버에 문제가 생겼어요.");
+
+        let data;
+        try {
+          data = await res.json();
+        } catch {
+          throw new Error("서버 응답을 읽을 수 없어요.");
+        }
+        if (typeof data.message !== "string" || typeof data.name !== "string") {
+          throw new Error("서버 응답을 읽을 수 없어요.");
+        }
+
+        result.className = "";
+        result.textContent = "";
+        const who = document.createElement("div");
+        who.className = "who";
+        who.textContent = data.name === "여러분" ? "여러분," : data.name + "님,";
+        const msg = document.createElement("div");
+        msg.textContent = data.message;
+        result.append(who, msg);
+      } catch (err) {
+        show("error", err.message + " 응원을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.");
+      } finally {
+        btn.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>
